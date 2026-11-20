@@ -1,0 +1,105 @@
+1c1
+< """BM2 development pilot (exploratory, not frozen): path-specific cuts onto T5 in the four FlyVis development models.
+---
+> """BM2 confirmation run (PROTOCOL.md, Section 2): path-specific cuts onto T5 in the 46 FlyVis confirmation models.
+3,4c3,4
+<   code/pilot_run.sh            launches this on the GPU through the portfolio GPU lock, as a systemd unit
+<   python -B pilot_simulate.py  (CPU if not launched through the lock; slow)
+---
+>   code/run.sh             launches this on the GPU through the portfolio GPU lock, as a systemd unit
+>   python -B simulate.py   (CPU if not launched through the lock; slow)
+6c6,9
+< Development models only (000, 001, 004, 005: P7's development set). The 46 confirmation models are never loaded.
+---
+> A copy of the development pilot's pilot_simulate.py with three changes only: the 46 confirmation models (the four
+> development models are refused), the output folder results/confirmation/, and failure handling (a model that fails an
+> identity or replication check is logged and skipped rather than stopping the run; non-finite simulation values are
+> recorded in the record's metadata rather than raised).
+44c47
+< OUT = STUDY / "results/pilot"
+---
+> OUT = STUDY / "results/confirmation"
+55a59,60
+> CONFIRMATION = [m for m in ai06.MODELS if m not in DEVELOPMENT]
+> assert len(CONFIRMATION) == 46
+213,214d217
+<         if not bool(torch.isfinite(result).all()):
+<             raise FloatingPointError("nonfinite output")
+269a273,274
+>         if not bool(torch.isfinite(intact).all()) or not bool(torch.isfinite(rec).all()):
+>             raise RuntimeError(f"intact run not finite: {model} {key}")
+278c283
+<         if exact_gap > TOLERANCE or record_gap > TOLERANCE:
+---
+>         if not (exact_gap <= TOLERANCE and record_gap <= TOLERANCE):
+316a322
+>                     finite = np.isfinite(bank).reshape(len(jobs), -1).all(axis=1)
+319c325
+<                         r = partial.setdefault(ci, [np.empty((24, n_frames, 13), np.float32), set(), 0.0])
+---
+>                         r = partial.setdefault(ci, [np.empty((24, n_frames, 13), np.float32), set(), 0.0, True])
+322a329
+>                         r[3] = r[3] and bool(finite[row])
+325c332
+<                             arrays, _, seconds = partial.pop(ci)
+---
+>                             arrays, _, seconds, all_finite = partial.pop(ci)
+327c334,338
+<                             write_record(dest / (cond["code"] + ".npz"), arrays_of(arrays, stim),
+---
+>                             if not all_finite:
+>                                 report.setdefault("nonfinite", []).append(f"{mode}/{key}/{cond['code']}")
+>                             with np.errstate(invalid="ignore"):
+>                                 arrays = arrays_of(arrays, stim)
+>                             write_record(dest / (cond["code"] + ".npz"), arrays,
+329c340
+<                                           "wall_seconds": seconds}, sig)
+---
+>                                           "nonfinite": not all_finite, "wall_seconds": seconds}, sig)
+338c349
+<                 if gap > TOLERANCE:
+---
+>                 if not gap <= TOLERANCE:
+370,372c381,383
+<     models = sys.argv[1:] or DEVELOPMENT
+<     if any(m not in DEVELOPMENT for m in models):
+<         sys.exit("development models only (000, 001, 004, 005)")
+---
+>     models = sys.argv[1:] or CONFIRMATION
+>     if any(m not in CONFIRMATION for m in models):
+>         sys.exit("confirmation models only (the 46 that are not 000, 001, 004, 005)")
+376c387,389
+<     log = {"phase": "pilot", "started_utc": utc_now(), "simulation_signature": sig, "environment": environment(device),
+---
+>     previous = json.loads((OUT / "confirmation-run.json").read_text()) if (OUT / "confirmation-run.json").exists() else {}
+>     log = {"phase": "confirmation", "started_utc": utc_now(), "earlier_runs": previous.get("earlier_runs", [])
+>            + ([{k: previous[k] for k in ("started_utc", "finished_utc") if k in previous}] if previous else []), "simulation_signature": sig, "environment": environment(device),
+378,379c391,399
+<     for model in models:
+<         report = run_model(model, device, sig, conds)
+---
+>     log["failed"] = {}
+>     for n, model in enumerate(models, 1):
+>         try:
+>             report = run_model(model, device, sig, conds)
+>         except RuntimeError as error:           # identity, replication or finiteness check: log, skip, go on
+>             log["failed"][model] = str(error)
+>             save_json(OUT / "confirmation-run.json", log)
+>             print(f"confirmation: model {model} FAILED a check and is skipped: {error}", flush=True)
+>             continue
+381,383c401,405
+<         save_json(OUT / "pilot-run.json", log)
+<         print(f"pilot: model {model} done in {report['seconds']:.1f} s; new conditions {report['conditions']}; "
+<               f"checks {json.dumps(report['checks'])}", flush=True)
+---
+>         save_json(OUT / "confirmation-run.json", log)
+>         worst = max(v for c in report["checks"].values() for v in c.values())
+>         print(f"confirmation: {n}/{len(models)} model {model} done in {report['seconds']:.0f} s; new conditions "
+>               f"{report['conditions']}; worst check gap {worst:.1e}; non-finite conditions "
+>               f"{len(report.get('nonfinite', []))}", flush=True)
+385,386c407,408
+<     save_json(OUT / "pilot-run.json", log)
+<     print("pilot: complete")
+---
+>     save_json(OUT / "confirmation-run.json", log)
+>     print(f"confirmation: complete; {len(log['models'])} models done, {len(log['failed'])} failed")

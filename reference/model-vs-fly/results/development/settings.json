@@ -1,0 +1,12 @@
+{
+ "delta": 0.2,
+ "pooling": "weighted",
+ "speed_rule": "log-nearest",
+ "decided_at_utc": "2026-10-18T05:25:08Z",
+ "rules": "PROTOCOL.md Section 6; none chosen by agreement with the stand-in table",
+ "evidence": {
+  "delta_share_within_band": 0.03125,
+  "pooling_share_differ": 0.21875,
+  "speed_share_differ": 0.125
+ }
+}

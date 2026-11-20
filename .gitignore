@@ -1,0 +1,23 @@
+# Unpacked from the release attachments (README.md, "Release files")
+# per-run-outputs.tar.gz
+/data/saved-outputs/reference-study-results.tar.xz
+/data/saved-outputs/study-results.tar.xz
+# frozen-protocols.tar.gz
+/AMENDMENTS-1-2.sha256
+/AMENDMENTS.md
+/AUTHOR-APPROVAL.txt
+/FREEZE-1.json
+/FREEZE-2.json
+/PROTOCOL-DRAFT.md
+/PROTOCOL.md
+# Written by `make unpack` from the saved outputs and the compressed inputs
+/recheck/RECHECK.json
+/reference/flyvis-first-order/study/results/
+/reference/model-vs-fly/results/confirmation/
+/results/
+# Environments, caches, downloaded checkpoints, figures and rerun copies
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+/reruns/
